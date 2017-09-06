@@ -16,15 +16,13 @@ def test_bloom_embedding(x):
 
 def test_reverse_embedding(x):
     new_shape = 10
-    reverse_dimension = x.shape[1]
     mapping, y = bloom_embedding(x, m=new_shape)
     assert y.shape[0] == x.shape[0]
     assert y.shape[1] == new_shape
     y = y.toarray()
-    revered_x = reverse_embedding(mapping, y, reverse_dimension)
-    #assert revered_x.shape[0] == x.shape[0]
+    revered_x = reverse_embedding(mapping, y)
+    assert revered_x.shape[0] == x.shape[0]
     assert revered_x.shape[1] == x.shape[1]
-    import ipdb; ipdb.set_trace()
 
 
 
