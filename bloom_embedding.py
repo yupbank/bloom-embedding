@@ -1,7 +1,8 @@
-from itertools import groupby
 import scipy.sparse as sp
 import numpy as np
 from sklearn.utils import murmurhash3_32
+from itertools import groupby
+from operator import itemgetter
 
 K = 10
 # K number of hash function
@@ -14,28 +15,29 @@ M = 10000
 
 
 def build_mapping(old_dimension, new_dimension, seeds):
-    hash_functions = [lambda r: murmurhash3_32(r, seed=seed) % new_dimension for seed in seeds]
-    mapping = np.zeros((old_dimension, len(seeds)))
+    mapping = np.zeros((old_dimension, len(seeds)), dtype=int)
     for d in range(old_dimension):
-        for n, function in enumerate(hash_functions):
-            mapping[d][n] = function(d)
+        for n, seed in enumerate(seeds):
+            mapping[d][n] = murmurhash3_32(d, seed=seed)%new_dimension
     return mapping
 
 
 def bloom_embedding(X, k=K, m=M, seeds=SEED):
     seeds = seeds or range(k)
+    row_dim, col_dim = X.shape
     assert len(seeds) == k
-    mapping = build_mapping(X.shape[1], m, seeds)
-    indptr = [0]
-    indices = []
-    for row, cols in groupby(zip(*X.nonzero()), key=lambda r: r[0]):
+    mapping = build_mapping(col_dim, m, seeds)
+    rows = []
+    cols = []
+    for row, indexes in groupby(zip(*X.nonzero()), key=itemgetter(0)):
         ones = set()
-        for row, col in cols:
+        for _, col in indexes:
             ones.update(mapping[col])
-        indices.extend(ones)
-        indptr.append(len(indices))
-    data = np.ones(len(indices))
-    return mapping, sp.csr_matrix((data, indices, indptr), dtype=int)
+        cols.extend(sorted(ones))
+        rows.extend([row for i in ones])
+
+    data = np.ones(len(rows))
+    return mapping, sp.csr_matrix((data, (rows, cols)), shape=(row_dim, m), dtype=int)
 
 
 def reverse_embedding(mapping, Q):
